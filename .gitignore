@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Local environment files (the example remains safe to commit)
+.env
+.env.*
+!.env.example
+
+# Local documentation and notes
+docs/
+
+# Local tooling and operating-system files
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+

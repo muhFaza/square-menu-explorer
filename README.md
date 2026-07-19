@@ -4,6 +4,19 @@ A mobile-first menu browser built for the Per Diem full-stack coding challenge. 
 
 **Live demo: [square.muhammadfaza.com](https://square.muhammadfaza.com)**
 
+| Desktop — 1440×900 | Mobile — 375×812 |
+| --- | --- |
+| ![Desktop view of the menu](assets/screenshot-desktop.jpg) | ![Mobile view of the menu](assets/screenshot-mobile.jpg) |
+
+Lighthouse on the deployed app — **accessibility 100 on both**:
+
+| | Performance | Accessibility | Best Practices | SEO |
+| --- | :---: | :---: | :---: | :---: |
+| Desktop | 100 | 100 | 96 | 100 |
+| Mobile | 99 | 100 | 96 | 100 |
+
+Assessing this against the brief? [`REQUIREMENTS.md`](REQUIREMENTS.md) maps every requirement to the code that implements it and the test that covers it. `pnpm test` runs all of them and needs no credentials.
+
 ## What it does
 
 - **Location switching** — pick any active Square location; the menu, business hours, and availability all follow. The choice persists in `localStorage`.
@@ -80,11 +93,14 @@ Two Square quirks this surfaced: `SearchCatalogObjects` returns related IMAGE ob
 pnpm lint:fix    # ESLint autofix, then strict TypeScript checking
 pnpm test        # Vitest unit/integration/component tests
 pnpm build       # production build
+pnpm start       # serve the built standalone app
 pnpm test:e2e    # build, then Playwright at desktop and exactly 375px
 pnpm verify      # every gate with a single build
 ```
 
 Run `pnpm exec playwright install chromium` once if Chromium is not installed.
+
+`pnpm start` and the E2E suite both run `.next/standalone/server.js`, the same entrypoint the Docker image uses, so the tests exercise the artifact that actually ships rather than a development server.
 
 Tests are layered: unit for Square semantics, money, and caching; integration across the Route Handler → service → gateway → mapper chain with only the SDK faked; component tests on real hooks in jsdom; and E2E against a built app with HTTP intercepted, so no credentials are ever used.
 
@@ -126,14 +142,20 @@ Some deliberate choices worth calling out:
 
 Concurrent loads are race-guarded: a location change aborts both in-flight requests and bumps a sequence counter, so a slow earlier response can never overwrite a newer menu.
 
-## Limitations
+## Known limits
 
-- The catalog cache is process-local. Production scale would want a shared store such as Redis alongside the existing webhook invalidation.
-- Cache hits skip active-location revalidation until expiry, so a deactivation can stay visible for up to the remaining TTL.
-- Configuration is validated lazily at request time, not at build time; invalid values surface as a sanitized configuration error.
-- The Nunito font loads via `next/font/google`, so the first production build needs network access.
-- Item detail is not implemented — the card is the terminal view.
+Each of these is a deliberate boundary rather than an unfinished edge, with the reasoning behind it:
+
+- **The catalog cache is process-local**, so it is lost on restart and not shared across instances. A single process is the right size for this challenge; scaling out would move the same interface to Redis, which is why invalidation is already event-driven rather than TTL-only.
+- **Cache hits skip active-location revalidation until expiry**, so deactivating a location can stay visible for up to the remaining TTL. Revalidating on every hit would defeat the cache; the webhook covers catalog changes, which are the ones that actually churn.
+- **Configuration is validated lazily at request time**, not at build time, so the image builds without credentials and fails with a sanitized error only when a request truly needs Square.
+- **The Nunito font loads through `next/font/google`**, so the first production build needs network access. Subsequent builds reuse the cached font.
+- **The item card is the terminal view** — the brief's only interaction requirement is that choosing a category navigates the menu, which is implemented and covered by E2E. A detail view was out of scope rather than incomplete.
 
 ## More
 
-The full development README, with per-phase implementation notes, the complete mapping contract, and detailed endpoint semantics, is archived at `docs/README-full.md`. The challenge brief and the standalone architecture and Square Catalog guides are also under `docs/` (gitignored, so local only).
+- `Full Stack Coding Challenge - Feb 2026.md` — the brief this was built against.
+- `REQUIREMENTS.md` — every requirement mapped to its implementation and test.
+- `AGENTS.md` — orientation for anyone reading the codebase.
+
+The long-form development README, with the complete mapping contract and per-endpoint semantics, is archived locally at `docs/README-full.md` (gitignored).

@@ -18,6 +18,10 @@ test-results/
 # Local documentation and notes
 docs/
 
+# Local agent workflow overrides. Kept out of the public repository because they
+# describe this machine's setup, not how to build or review the project.
+AGENTS.override.md
+
 # Local tooling and operating-system files
 *.tsbuildinfo
 .DS_Store

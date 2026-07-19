@@ -19,6 +19,7 @@ export class AsyncTtlCache<Value> {
   readonly #clock: () => number;
   readonly #entries = new Map<string, CacheEntry<Value>>();
   readonly #inFlight = new Map<string, Promise<Value>>();
+  #generation = 0;
 
   constructor({
     ttlMs = CATALOG_CACHE_TTL_MS,
@@ -50,21 +51,33 @@ export class AsyncTtlCache<Value> {
       return existingLoad;
     }
 
+    const loadGeneration = this.#generation;
     const load = Promise.resolve().then(loader);
     this.#inFlight.set(key, load);
 
     try {
       const value = await load;
-      this.#entries.set(key, {
-        value,
-        expiresAt: this.#clock() + this.#ttlMs,
-      });
+      // Skip caching if an invalidateAll landed while this load was in flight;
+      // the caller still gets its value, but stale data is not stored.
+      if (this.#generation === loadGeneration) {
+        this.#entries.set(key, {
+          value,
+          expiresAt: this.#clock() + this.#ttlMs,
+        });
+      }
       return value;
     } finally {
       if (this.#inFlight.get(key) === load) {
         this.#inFlight.delete(key);
       }
     }
+  }
+
+  /** Evicts every entry and in-flight load so the next read reloads from Square. */
+  invalidateAll(): void {
+    this.#generation += 1;
+    this.#entries.clear();
+    this.#inFlight.clear();
   }
 }
 

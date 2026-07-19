@@ -43,6 +43,37 @@ describe("parseServerEnvironment", () => {
     });
   });
 
+  it("trims the optional webhook signature key and notification URL", () => {
+    expect(
+      parseServerEnvironment({
+        SQUARE_ACCESS_TOKEN: "fake-token",
+        SQUARE_ENVIRONMENT: "sandbox",
+        PORT: "3000",
+        SQUARE_WEBHOOK_SIGNATURE_KEY: "  fake-signature-key  ",
+        SQUARE_WEBHOOK_NOTIFICATION_URL:
+          "  https://example.test/api/webhooks/square  ",
+      }),
+    ).toMatchObject({
+      squareWebhookSignatureKey: "fake-signature-key",
+      squareWebhookNotificationUrl: "https://example.test/api/webhooks/square",
+    });
+  });
+
+  it("omits blank or missing webhook configuration", () => {
+    expect(
+      parseServerEnvironment({
+        SQUARE_ACCESS_TOKEN: "fake-token",
+        SQUARE_ENVIRONMENT: "sandbox",
+        PORT: "3000",
+        SQUARE_WEBHOOK_SIGNATURE_KEY: "   ",
+      }),
+    ).toEqual({
+      squareAccessToken: "fake-token",
+      squareEnvironment: "sandbox",
+      port: 3000,
+    });
+  });
+
   it("reads process.env lazily each time getServerEnvironment is called", () => {
     vi.stubEnv("SQUARE_ACCESS_TOKEN", "fake-first-token");
     vi.stubEnv("SQUARE_ENVIRONMENT", "sandbox");

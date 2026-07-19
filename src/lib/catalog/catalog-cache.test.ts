@@ -127,6 +127,54 @@ describe("AsyncTtlCache", () => {
       );
     },
   );
+
+  it("evicts cached entries so invalidateAll forces the next load to reload", async () => {
+    const cache = new AsyncTtlCache<string>();
+    const loader = vi
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce("first")
+      .mockResolvedValueOnce("second");
+
+    await expect(cache.getOrLoad("key", loader)).resolves.toBe("first");
+    cache.invalidateAll();
+    await expect(cache.getOrLoad("key", loader)).resolves.toBe("second");
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it("resolves an in-flight load for its caller but does not cache it after invalidateAll", async () => {
+    const cache = new AsyncTtlCache<string>();
+    const pending = deferred<string>();
+    const inFlight = cache.getOrLoad("key", () => pending.promise);
+    await Promise.resolve();
+
+    cache.invalidateAll();
+    pending.resolve("stale");
+    await expect(inFlight).resolves.toBe("stale");
+
+    const loader = vi.fn().mockResolvedValue("fresh");
+    await expect(cache.getOrLoad("key", loader)).resolves.toBe("fresh");
+    expect(loader).toHaveBeenCalledOnce();
+  });
+
+  it("does not reuse a pre-invalidation in-flight promise", async () => {
+    const cache = new AsyncTtlCache<string>();
+    const first = deferred<string>();
+    const firstLoader = vi.fn(() => first.promise);
+    const pre = cache.getOrLoad("key", firstLoader);
+    await Promise.resolve();
+
+    cache.invalidateAll();
+    const second = deferred<string>();
+    const secondLoader = vi.fn(() => second.promise);
+    const post = cache.getOrLoad("key", secondLoader);
+    await Promise.resolve();
+
+    expect(secondLoader).toHaveBeenCalledOnce();
+    first.resolve("pre-value");
+    second.resolve("post-value");
+    await expect(pre).resolves.toBe("pre-value");
+    await expect(post).resolves.toBe("post-value");
+  });
 });
 
 describe("createCatalogCacheKey", () => {

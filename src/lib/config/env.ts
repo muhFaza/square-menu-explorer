@@ -9,6 +9,8 @@ export interface ServerEnvironment {
   readonly squareEnvironment: SquareEnvironmentName;
   readonly port: number;
   readonly squareApplicationId?: string;
+  readonly squareWebhookSignatureKey?: string;
+  readonly squareWebhookNotificationUrl?: string;
 }
 
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
@@ -81,6 +83,10 @@ export function parseServerEnvironment(
   const squareEnvironment = parseSquareEnvironment(source, issues);
   const port = parsePort(source, issues);
   const squareApplicationId = source.SQUARE_APPLICATION_ID?.trim() || undefined;
+  const squareWebhookSignatureKey =
+    source.SQUARE_WEBHOOK_SIGNATURE_KEY?.trim() || undefined;
+  const squareWebhookNotificationUrl =
+    source.SQUARE_WEBHOOK_NOTIFICATION_URL?.trim() || undefined;
 
   if (!squareAccessToken || !squareEnvironment || !port || issues.length > 0) {
     throw new ConfigurationError(
@@ -93,6 +99,8 @@ export function parseServerEnvironment(
     squareEnvironment,
     port,
     ...(squareApplicationId ? { squareApplicationId } : {}),
+    ...(squareWebhookSignatureKey ? { squareWebhookSignatureKey } : {}),
+    ...(squareWebhookNotificationUrl ? { squareWebhookNotificationUrl } : {}),
   });
 }
 

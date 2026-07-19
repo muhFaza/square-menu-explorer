@@ -609,7 +609,7 @@ export function MenuCatalogView({
                   </h1>
                   <p>Choose a category or browse every available menu item.</p>
                 </header>
-                {filteredCategories.map((category) => (
+                {filteredCategories.map((category, sectionIndex) => (
                   <section
                     className="category-section"
                     data-category-id={category.id}
@@ -633,8 +633,14 @@ export function MenuCatalogView({
                       </div>
                     </header>
                     <div className="menu-grid">
-                      {category.items.map((item) => (
-                        <MenuItemCard item={item} key={item.id} />
+                      {category.items.map((item, itemIndex) => (
+                        <MenuItemCard
+                          item={item}
+                          key={item.id}
+                          // Only the first section's leading cards can be the
+                          // LCP image; everything below the fold stays lazy.
+                          priority={sectionIndex === 0 && itemIndex < 4}
+                        />
                       ))}
                     </div>
                   </section>

@@ -64,7 +64,14 @@ function FromPrice({ item }: { readonly item: CatalogItemDto }) {
   );
 }
 
-export function MenuItemCard({ item }: { readonly item: CatalogItemDto }) {
+export function MenuItemCard({
+  item,
+  priority = false,
+}: {
+  readonly item: CatalogItemDto;
+  /** Marks likely-above-the-fold images as high fetch priority for LCP. */
+  readonly priority?: boolean;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
@@ -131,9 +138,9 @@ export function MenuItemCard({ item }: { readonly item: CatalogItemDto }) {
             alt=""
             fill
             onError={() => setImageFailed(true)}
+            priority={priority}
             sizes="(max-width: 700px) 112px, (max-width: 1100px) 30vw, 280px"
             src={item.image_url!}
-            unoptimized
           />
         ) : (
           <div

@@ -192,14 +192,21 @@ export function MenuItemCard({ item }: { readonly item: CatalogItemDto }) {
           </button>
         ) : null}
         <FromPrice item={item} />
-        <ul className="variation-list" aria-label={`Variations for ${item.name}`}>
-          {item.variations.map((variation) => (
-            <li key={variation.id}>
-              <span>{variation.name}</span>
-              <Price price={variation.price} />
-            </li>
-          ))}
-        </ul>
+        {/* A lone variation carries no choice: FromPrice already shows its exact
+            price, so listing it again just repeats the same line. */}
+        {item.variations.length > 1 ? (
+          <ul
+            className="variation-list"
+            aria-label={`Variations for ${item.name}`}
+          >
+            {item.variations.map((variation) => (
+              <li key={variation.id}>
+                <span>{variation.name}</span>
+                <Price price={variation.price} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </article>
   );

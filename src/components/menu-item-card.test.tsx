@@ -50,6 +50,25 @@ describe("MenuItemCard", () => {
     expect(screen.getByRole("list", { name: "Variations for Cafe Latte" })).toHaveTextContent("Small$3.25LargePrice unavailable");
   });
 
+  it("drops the variation list for a lone variation but keeps its price", () => {
+    const single = {
+      ...item,
+      variations: [
+        { id: "ONLY", name: "Regular", price: { amount: "450", currency: "USD" } },
+      ],
+    };
+    render(<MenuItemCard item={single} />);
+
+    // One variation is not a choice, so the list would just repeat the price.
+    expect(
+      screen.queryByRole("list", { name: "Variations for Cafe Latte" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Regular")).not.toBeInTheDocument();
+    // The exact price still shows, with no "From" floor prefix.
+    expect(screen.getByText("$4.50")).toBeInTheDocument();
+    expect(screen.queryByText(/From/)).not.toBeInTheDocument();
+  });
+
   it("expands and collapses only a long description with a stable relationship", () => {
     mockDescriptionBox(48, 32);
     render(

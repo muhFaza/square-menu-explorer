@@ -1,0 +1,27 @@
+# Dependencies and build output are reinstalled/regenerated inside the image.
+node_modules
+.next
+out
+
+# Version control and CI artifacts.
+.git
+.gitignore
+
+# Local environment files — keep secrets out of the build context.
+# .env.example carries only placeholders and stays includable.
+.env
+.env.*
+!.env.example
+
+# Test and report output.
+test-results
+playwright-report
+coverage
+*.tsbuildinfo
+
+# Docs and screenshots are not needed to build or serve the app.
+docs
+
+# OS files.
+.DS_Store
+Thumbs.db

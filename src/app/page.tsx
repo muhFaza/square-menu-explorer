@@ -1,8 +1,5 @@
+import { MenuExplorerShell } from "@/components/menu-explorer-shell";
+
 export default function Home() {
-  return (
-    <main>
-      <h1>Square Menu Explorer</h1>
-      <p>Catalog browsing coming soon.</p>
-    </main>
-  );
+  return <MenuExplorerShell />;
 }

@@ -313,10 +313,7 @@ describe("MenuExplorerShell", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Menu navigation" });
     expect(hamburger).toHaveAttribute("aria-expanded", "true");
-    expect(within(dialog).getByText("Menu")).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(within(dialog).queryByText("Menu")).not.toBeInTheDocument();
     expect(within(dialog).queryByText("Orders")).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -328,7 +325,9 @@ describe("MenuExplorerShell", () => {
         screen.queryByRole("dialog", { name: "Menu navigation" }),
       ).not.toBeInTheDocument(),
     );
-    expect(scrollIntoView).toHaveBeenCalled();
+    // The scroll runs in a passive effect after the drawer unmounts, which is
+    // not guaranteed to have flushed the instant the dialog leaves the DOM.
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
   it("aborts the in-flight request when the shell unmounts", () => {

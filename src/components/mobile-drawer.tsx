@@ -6,7 +6,6 @@ import {
   CloseIcon,
   HeartIcon,
   InfoIcon,
-  MenuGridIcon,
 } from "@/components/icons";
 
 const FOCUSABLE_SELECTOR =
@@ -17,13 +16,14 @@ interface MobileDrawerProps {
   readonly children: ReactNode;
   /** True while the exit animation plays; the drawer unmounts via onClosed. */
   readonly closing?: boolean;
+  readonly aboutActive: boolean;
   readonly favoritesActive: boolean;
   readonly favoritesCount: number;
   readonly onClose: () => void;
   /** Fired once the exit animation ends (or immediately under reduced motion). */
   readonly onClosed?: () => void;
+  readonly onSelectAbout: () => void;
   readonly onSelectFavorites: () => void;
-  readonly onSelectMenu: () => void;
 }
 
 // Mount/unmount drives focus capture and restore; the parent keeps this mounted
@@ -31,12 +31,13 @@ interface MobileDrawerProps {
 export function MobileDrawer({
   children,
   closing = false,
+  aboutActive,
   favoritesActive,
   favoritesCount,
   onClose,
   onClosed,
+  onSelectAbout,
   onSelectFavorites,
-  onSelectMenu,
 }: MobileDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -148,15 +149,6 @@ export function MobileDrawer({
         {children}
         <nav aria-label="App navigation" className="mobile-drawer__app-nav">
           <button
-            aria-current={favoritesActive ? undefined : "page"}
-            className={`mobile-drawer__app-link${favoritesActive ? "" : " is-current"}`}
-            onClick={onSelectMenu}
-            type="button"
-          >
-            <MenuGridIcon size={20} />
-            Menu
-          </button>
-          <button
             aria-current={favoritesActive ? "true" : undefined}
             className={`mobile-drawer__app-link${favoritesActive ? " is-current" : ""}`}
             onClick={onSelectFavorites}
@@ -168,10 +160,15 @@ export function MobileDrawer({
               <span className="mobile-drawer__app-count">{favoritesCount}</span>
             ) : null}
           </button>
-          <span aria-disabled="true" className="mobile-drawer__app-link">
+          <button
+            aria-current={aboutActive ? "true" : undefined}
+            className={`mobile-drawer__app-link${aboutActive ? " is-current" : ""}`}
+            onClick={onSelectAbout}
+            type="button"
+          >
             <InfoIcon size={20} />
             About
-          </span>
+          </button>
         </nav>
       </div>
     </div>

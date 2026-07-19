@@ -7,11 +7,12 @@ import { MobileDrawer } from "./mobile-drawer";
 function renderDrawer(props: Partial<ComponentProps<typeof MobileDrawer>> = {}) {
   return render(
     <MobileDrawer
+      aboutActive={false}
       favoritesActive={false}
       favoritesCount={0}
       onClose={vi.fn()}
+      onSelectAbout={vi.fn()}
       onSelectFavorites={vi.fn()}
-      onSelectMenu={vi.fn()}
       {...props}
     >
       <nav aria-label="Menu categories">
@@ -104,15 +105,39 @@ describe("MobileDrawer", () => {
     vi.useRealTimers();
   });
 
-  it("offers a decorative About entry and no Orders entry", () => {
-    renderDrawer();
+  it("offers a working About entry and no Menu or Orders entry", () => {
+    const onSelectAbout = vi.fn();
+    const { rerender } = renderDrawer({ onSelectAbout });
 
-    const about = screen.getByText("About");
-    expect(about).toHaveAttribute("aria-disabled", "true");
+    const about = screen.getByRole("button", { name: "About" });
+    expect(about).not.toHaveAttribute("aria-disabled");
+    expect(about).not.toHaveAttribute("aria-current");
+    fireEvent.click(about);
+    expect(onSelectAbout).toHaveBeenCalledTimes(1);
+
+    // The desktop sidebar has no Menu entry; the category list already returns
+    // you to the menu, so the drawer must not carry a redundant one.
     expect(
-      screen.getByRole("button", { name: "Menu" }),
-    ).toHaveAttribute("aria-current", "page");
+      screen.queryByRole("button", { name: "Menu" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Orders")).not.toBeInTheDocument();
+
+    rerender(
+      <MobileDrawer
+        aboutActive
+        favoritesActive={false}
+        favoritesCount={0}
+        onClose={vi.fn()}
+        onSelectAbout={onSelectAbout}
+        onSelectFavorites={vi.fn()}
+      >
+        <nav aria-label="Menu categories" />
+      </MobileDrawer>,
+    );
+    expect(screen.getByRole("button", { name: "About" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
   });
 
   it("shows a real favorites entry with a count and marks it current when active", () => {
@@ -127,11 +152,12 @@ describe("MobileDrawer", () => {
 
     rerender(
       <MobileDrawer
+        aboutActive={false}
         favoritesActive
         favoritesCount={3}
         onClose={vi.fn()}
+        onSelectAbout={vi.fn()}
         onSelectFavorites={onSelectFavorites}
-        onSelectMenu={vi.fn()}
       >
         <nav aria-label="Menu categories" />
       </MobileDrawer>,
@@ -139,17 +165,6 @@ describe("MobileDrawer", () => {
     expect(
       screen.getByRole("button", { name: /Favorites/ }),
     ).toHaveAttribute("aria-current", "true");
-    expect(
-      screen.getByRole("button", { name: "Menu" }),
-    ).not.toHaveAttribute("aria-current");
-  });
-
-  it("returns to the menu when the Menu entry is chosen", () => {
-    const onSelectMenu = vi.fn();
-    renderDrawer({ favoritesActive: true, onSelectMenu });
-
-    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
-    expect(onSelectMenu).toHaveBeenCalledTimes(1);
   });
 
   it("renders the provided category navigation", () => {

@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -14,7 +13,8 @@ import {
   ALL_ITEMS_CATEGORY_ID,
   CategoryNavigation,
 } from "@/components/category-navigation";
-import { ArrowRightIcon, HeartIcon } from "@/components/icons";
+import { AboutView } from "@/components/about-view";
+import { HeartIcon, InfoIcon } from "@/components/icons";
 import {
   CategoryNavigationSkeleton,
   MenuLoadingSkeleton,
@@ -25,7 +25,10 @@ import { SearchBar } from "@/components/search-bar";
 import { useFavorites } from "@/hooks/use-favorites";
 import type { MenuCatalogState } from "@/hooks/use-menu-catalog";
 
-type ViewMode = "menu" | "favorites";
+type ViewMode = "menu" | "favorites" | "about";
+
+/** Must match the `menu-exit` animation duration in globals.css. */
+const VIEW_EXIT_MS = 120;
 
 interface MenuCatalogViewProps {
   readonly drawerOpen?: boolean;
@@ -63,6 +66,9 @@ export function MenuCatalogView({
     ALL_ITEMS_CATEGORY_ID,
   );
   const [viewMode, setViewMode] = useState<ViewMode>("menu");
+  // The view being switched to while the outgoing one animates out; null when
+  // no switch is in flight. `viewMode` stays on the view that is still visible.
+  const [pendingView, setPendingView] = useState<ViewMode | null>(null);
   const [announcement, setAnnouncement] = useState("");
   // Keep the drawer mounted through its exit animation: it stays rendered until
   // MobileDrawer signals the close finished, then this drops it from the DOM.
@@ -74,6 +80,8 @@ export function MenuCatalogView({
   }
   const { favoriteIds } = useFavorites();
   const isFavoritesMode = viewMode === "favorites";
+  // Search announcements and scroll-spy only make sense over the real menu.
+  const isMenuMode = viewMode === "menu";
   const contentRef = useRef<HTMLDivElement>(null);
   const recoveryHeadingRef = useRef<HTMLHeadingElement>(null);
   const recoveryFocusPending = useRef(false);
@@ -159,24 +167,82 @@ export function MenuCatalogView({
     });
   }, []);
 
+  // The view the user is headed for, which is what the navigation should
+  // highlight immediately even while the outgoing view is still animating.
+  const targetView = pendingView ?? viewMode;
+
+  const commitView = useCallback((next: ViewMode) => {
+    setViewMode(next);
+    setPendingView(null);
+  }, []);
+
+  // Start the outgoing animation instead of swapping content on the spot. Under
+  // reduced motion the exit keyframes are disabled, so there is nothing to wait
+  // for — swap immediately rather than sitting on a blank 120ms.
+  const requestView = useCallback(
+    (next: ViewMode) => {
+      if (next === targetView) {
+        return;
+      }
+      // Reversing mid-transition: the view being asked for is the one still on
+      // screen, so drop the pending swap instead of animating out and back in.
+      if (next === viewMode) {
+        setPendingView(null);
+        return;
+      }
+      const reduceMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      if (reduceMotion) {
+        commitView(next);
+        return;
+      }
+      setPendingView(next);
+    },
+    [commitView, targetView, viewMode],
+  );
+
+  // Commit on a timer rather than animationend: the durations are identical,
+  // and a timer stays deterministic when animationend cannot fire at all (no
+  // AnimationEvent under jsdom, throttled background tabs, interrupted runs).
+  useEffect(() => {
+    if (pendingView === null) {
+      return;
+    }
+    const timer = window.setTimeout(
+      () => commitView(pendingView),
+      VIEW_EXIT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [commitView, pendingView]);
+
   const selectCategory = useCallback(
     (categoryId: string) => {
       setActiveCategoryId(categoryId);
-      if (viewMode !== "menu") {
+      if (targetView !== "menu") {
         // Choosing a category always returns to the full menu; defer the scroll
-        // until those sections have mounted (see the layout effect below).
+        // until those sections have mounted (see the flush effect below).
         pendingScrollCategoryRef.current = categoryId;
-        setViewMode("menu");
+        requestView("menu");
         return;
       }
       scrollToCategory(categoryId);
     },
-    [scrollToCategory, viewMode],
+    [requestView, scrollToCategory, targetView],
   );
 
-  // Flush a scroll that was deferred while Favorites was still on screen.
-  useLayoutEffect(() => {
-    if (viewMode !== "menu" || menu.status !== "ready") {
+  // Flush a scroll that was deferred while Favorites was still on screen or
+  // while the drawer was animating out. This must stay a passive effect: the
+  // drawer releases its body-scroll lock in a passive cleanup, and restoring
+  // that style resets the scroll offset — so scrolling any earlier gets undone.
+  useEffect(() => {
+    if (
+      viewMode !== "menu" ||
+      menu.status !== "ready" ||
+      drawerMounted ||
+      // A view swap still in flight means the menu sections are not on screen
+      // yet; the commit re-runs this effect once they are.
+      pendingView !== null
+    ) {
       return;
     }
     const pending = pendingScrollCategoryRef.current;
@@ -185,7 +251,7 @@ export function MenuCatalogView({
     }
     pendingScrollCategoryRef.current = null;
     scrollToCategory(pending);
-  }, [menu.status, scrollToCategory, viewMode]);
+  }, [drawerMounted, menu.status, pendingView, scrollToCategory, viewMode]);
 
   const retryMenu = useCallback(() => {
     recoveryFocusPending.current = true;
@@ -206,7 +272,7 @@ export function MenuCatalogView({
   useEffect(() => {
     const timer = setTimeout(
       () => {
-        if (menu.status !== "ready" || !isSearching || isFavoritesMode) {
+        if (menu.status !== "ready" || !isSearching || !isMenuMode) {
           setAnnouncement("");
           return;
         }
@@ -219,11 +285,11 @@ export function MenuCatalogView({
       isSearching ? 300 : 0,
     );
     return () => clearTimeout(timer);
-  }, [isFavoritesMode, isSearching, matchCount, menu.status, trimmedQuery]);
+  }, [isMenuMode, isSearching, matchCount, menu.status, trimmedQuery]);
 
   useEffect(() => {
     // Scroll-spy must not fight the Favorites active state.
-    if (menu.status !== "ready" || isFavoritesMode) {
+    if (menu.status !== "ready" || !isMenuMode) {
       return;
     }
 
@@ -271,10 +337,16 @@ export function MenuCatalogView({
     updateActiveCategory();
     return () => window.removeEventListener("scroll", updateActiveCategory);
     // Re-observe when search changes which sections are actually rendered.
-  }, [isFavoritesMode, menu.status, visibleCategorySignature]);
+  }, [isMenuMode, menu.status, visibleCategorySignature]);
 
   // No category is highlighted while browsing favorites.
-  const navActiveCategoryId = isFavoritesMode ? "" : activeCategoryId;
+  // No category is highlighted outside the menu, or Favorites/About would sit
+  // active alongside a category at the same time.
+  const navActiveCategoryId = targetView === "menu" ? activeCategoryId : "";
+  // Applied to whichever view is on screen, so the outgoing one animates out.
+  const viewTransitionClass = `menu-transition${
+    pendingView === null ? "" : " is-leaving"
+  }`;
   const navigation = (
     <CategoryNavigation
       activeCategoryId={navActiveCategoryId}
@@ -283,33 +355,47 @@ export function MenuCatalogView({
     />
   );
 
+  // Always defer: the drawer's body-scroll lock outlives this click by the
+  // length of the exit animation, and releasing it resets any scroll started
+  // in the meantime. The flush effect scrolls once the drawer is gone.
   const selectCategoryFromDrawer = useCallback(
     (categoryId: string) => {
-      selectCategory(categoryId);
+      setActiveCategoryId(categoryId);
+      requestView("menu");
+      pendingScrollCategoryRef.current = categoryId;
       onCloseDrawer?.();
     },
-    [onCloseDrawer, selectCategory],
+    [onCloseDrawer, requestView],
   );
 
   // Favorites is a distinct view; open it at its own top rather than inheriting
   // wherever the menu was scrolled to.
   const showFavorites = useCallback(() => {
     pendingScrollCategoryRef.current = null;
-    setViewMode("favorites");
+    requestView("favorites");
     const reduceMotion = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     window.scrollTo?.({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  }, []);
-  const showMenu = useCallback(() => setViewMode("menu"), []);
+  }, [requestView]);
+  const showMenu = useCallback(() => requestView("menu"), [requestView]);
+  // About is its own destination; open it at the top like Favorites.
+  const showAbout = useCallback(() => {
+    pendingScrollCategoryRef.current = null;
+    requestView("about");
+    const reduceMotion = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    window.scrollTo?.({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  }, [requestView]);
+  const selectAboutFromDrawer = useCallback(() => {
+    showAbout();
+    onCloseDrawer?.();
+  }, [onCloseDrawer, showAbout]);
   const selectFavoritesFromDrawer = useCallback(() => {
     showFavorites();
     onCloseDrawer?.();
   }, [onCloseDrawer, showFavorites]);
-  const selectMenuFromDrawer = useCallback(() => {
-    setViewMode("menu");
-    onCloseDrawer?.();
-  }, [onCloseDrawer]);
 
   return (
     <>
@@ -323,8 +409,8 @@ export function MenuCatalogView({
               {menu.status === "ready" ? (
                 <div className="sidebar__favorites">
                   <button
-                    aria-current={isFavoritesMode ? "true" : undefined}
-                    className={`favorites-nav${isFavoritesMode ? " is-active" : ""}`}
+                    aria-current={targetView === "favorites" ? "true" : undefined}
+                    className={`favorites-nav${targetView === "favorites" ? " is-active" : ""}`}
                     onClick={showFavorites}
                     type="button"
                   >
@@ -344,6 +430,17 @@ export function MenuCatalogView({
                       </span>
                     ) : null}
                   </button>
+                  <button
+                    aria-current={targetView === "about" ? "true" : undefined}
+                    className={`favorites-nav${targetView === "about" ? " is-active" : ""}`}
+                    onClick={showAbout}
+                    type="button"
+                  >
+                    <span aria-hidden="true" className="favorites-nav__icon">
+                      <InfoIcon size={18} />
+                    </span>
+                    <span className="favorites-nav__name">About</span>
+                  </button>
                 </div>
               ) : null}
             </>
@@ -357,6 +454,8 @@ export function MenuCatalogView({
       <section className="content-panel">
         {/* Single sticky container: search row + chips row share one stuck
             element and an opaque veil so scrolling never jitters the pair. */}
+        {/* Search and category chips act on the menu; About has neither. */}
+        {viewMode === "about" ? null : (
         <div className="mobile-sticky-stack">
           <div className="mobile-search">
             <SearchBar
@@ -374,6 +473,7 @@ export function MenuCatalogView({
             </div>
           ) : null}
         </div>
+        )}
 
         {menu.status === "loading" || menu.status === "idle" ? (
           <MenuLoadingState locationName={locationName} />
@@ -402,9 +502,20 @@ export function MenuCatalogView({
             <p aria-atomic="true" aria-live="polite" className="sr-only">
               {announcement}
             </p>
-            {isFavoritesMode ? (
+            {viewMode === "about" ? (
+              <div
+                className={`menu-catalog ${viewTransitionClass}`}
+                key={viewMode}
+              >
+                <AboutView />
+              </div>
+            ) : isFavoritesMode ? (
               favoriteCategories.length === 0 ? (
-                <section className="menu-state menu-transition" role="status">
+                <section
+                  className={`menu-state ${viewTransitionClass}`}
+                  key={viewMode}
+                  role="status"
+                >
                   <span aria-hidden="true" className="state-panel__icon">
                     <HeartIcon size={26} />
                   </span>
@@ -421,7 +532,10 @@ export function MenuCatalogView({
                   </button>
                 </section>
               ) : (
-                <div className="menu-catalog menu-transition">
+                <div
+                  className={`menu-catalog ${viewTransitionClass}`}
+                  key={viewMode}
+                >
                   <header className="menu-catalog__header">
                     <p className="eyebrow">Saved items</p>
                     <h1>My Favorites</h1>
@@ -455,7 +569,11 @@ export function MenuCatalogView({
                 </div>
               )
             ) : noResults ? (
-              <section className="menu-state menu-transition" role="status">
+              <section
+                className={`menu-state ${viewTransitionClass}`}
+                key={viewMode}
+                role="status"
+              >
                 <span aria-hidden="true" className="state-panel__icon">
                   ?
                 </span>
@@ -473,7 +591,11 @@ export function MenuCatalogView({
                 </button>
               </section>
             ) : (
-              <div className="menu-catalog menu-transition" ref={contentRef}>
+              <div
+                className={`menu-catalog ${viewTransitionClass}`}
+                key={viewMode}
+                ref={contentRef}
+              >
                 <p className="sr-only" role="status" aria-live="polite">
                   Menu loaded for {locationName}.
                 </p>
@@ -509,14 +631,6 @@ export function MenuCatalogView({
                           </span>
                         </div>
                       </div>
-                      <button
-                        className="category-section__view-all"
-                        onClick={() => selectCategory(category.id)}
-                        type="button"
-                      >
-                        View all
-                        <ArrowRightIcon size={15} />
-                      </button>
                     </header>
                     <div className="menu-grid">
                       {category.items.map((item) => (
@@ -533,12 +647,13 @@ export function MenuCatalogView({
       {drawerMounted ? (
         <MobileDrawer
           closing={!drawerOpen}
-          favoritesActive={isFavoritesMode}
+          aboutActive={targetView === "about"}
+          favoritesActive={targetView === "favorites"}
+          onSelectAbout={selectAboutFromDrawer}
           favoritesCount={favoritesPresentCount}
           onClose={onCloseDrawer ?? (() => undefined)}
           onClosed={handleDrawerClosed}
           onSelectFavorites={selectFavoritesFromDrawer}
-          onSelectMenu={selectMenuFromDrawer}
         >
           <CategoryNavigation
             activeCategoryId={navActiveCategoryId}

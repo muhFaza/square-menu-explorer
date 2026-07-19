@@ -13,6 +13,15 @@ import type { MenuCatalogState } from "@/hooks/use-menu-catalog";
 
 import { MenuCatalogView } from "./menu-catalog-view";
 
+// Switching between the menu and favorites animates the outgoing view out
+// before swapping content, so the swap lands one exit-duration later. Waiting
+// past that duration is what makes the new view observable.
+async function settleViewTransition() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 160));
+  });
+}
+
 const menu = {
   status: "ready",
   retry: vi.fn(),
@@ -319,13 +328,145 @@ describe("MenuCatalogView", () => {
     );
   });
 
-  it("filters the favorites view to favorited items present at the location", () => {
+  it("opens About from the desktop sidebar with working outbound links", async () => {
+    render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
+
+    const aboutNav = screen.getByRole("button", { name: "About" });
+    fireEvent.click(aboutNav);
+    await settleViewTransition();
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Square Menu Explorer" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
+    // Every outbound link opens in a new tab and is safe against tab-nabbing.
+    const links: readonly (readonly [RegExp, string])[] = [
+      [/^square-menu-explorer/, "https://github.com/muhFaza/square-menu-explorer"],
+      [/^github\.com\/muhFaza/, "https://github.com/muhFaza"],
+      [/^muhammadfaza\.com/, "http://muhammadfaza.com/"],
+      [/^linkedin\.com\/in\/mfaza/, "https://www.linkedin.com/in/mfaza/"],
+    ];
+    for (const [name, href] of links) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("href", href);
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+      // The new-tab behaviour is announced, not just visual.
+      expect(link).toHaveTextContent("opens in a new tab");
+    }
+
+    // Credits name both the challenge author and the API provider.
+    const thanks = screen.getByRole("heading", { name: "Thanks" })
+      .parentElement as HTMLElement;
+    expect(within(thanks).getByText("Per Diem")).toBeInTheDocument();
+    expect(within(thanks).getByText("Square")).toBeInTheDocument();
+  });
+
+  it("hides the mobile search and category chips on About", async () => {
+    const { container } = render(
+      <MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />,
+    );
+
+    expect(container.querySelector(".mobile-sticky-stack")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "About" }));
+    await settleViewTransition();
+
+    // Neither control acts on About, so leaving them visible implies the menu
+    // is still underneath.
+    expect(
+      container.querySelector(".mobile-sticky-stack"),
+    ).not.toBeInTheDocument();
+    expect(container.querySelector(".mobile-categories")).not.toBeInTheDocument();
+
+    // They come back with the menu.
+    fireEvent.click(screen.getAllByRole("button", { name: /Tea.*2 items/ })[0]);
+    await settleViewTransition();
+    expect(container.querySelector(".mobile-sticky-stack")).toBeInTheDocument();
+  });
+
+  it("leaves About for the menu when a category is chosen", async () => {
+    render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "About" }));
+    await settleViewTransition();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Square Menu Explorer" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Tea.*2 items/ })[0]);
+    await settleViewTransition();
+
+    expect(
+      screen.getByRole("heading", { name: "Riverside Cafe" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 1, name: "Square Menu Explorer" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("animates the outgoing view out before swapping to favorites", async () => {
+    const { container } = render(
+      <MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+
+    // Mid-transition: the menu is still on screen, marked as leaving, and the
+    // destination is already highlighted so the click feels immediate.
+    expect(
+      container.querySelector(".menu-catalog.is-leaving"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Riverside Cafe" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "No favorites yet" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Favorites/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+
+    await settleViewTransition();
+
+    expect(container.querySelector(".is-leaving")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No favorites yet" }),
+    ).toBeInTheDocument();
+  });
+
+  it("swaps views instantly when reduced motion is requested", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: true })) as unknown as typeof window.matchMedia,
+    );
+    const { container } = render(
+      <MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+
+    // The exit keyframes are disabled under reduced motion, so waiting on them
+    // would strand the user on the old view.
+    expect(container.querySelector(".is-leaving")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "No favorites yet" }),
+    ).toBeInTheDocument();
+  });
+
+  it("filters the favorites view to favorited items present at the location", async () => {
     render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Add Iced Tea to favorites" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
 
     expect(
       screen.getByRole("heading", { name: "My Favorites" }),
@@ -341,7 +482,7 @@ describe("MenuCatalogView", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("scrolls to the chosen category when leaving the favorites view", () => {
+  it("scrolls to the chosen category when leaving the favorites view", async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
@@ -350,6 +491,7 @@ describe("MenuCatalogView", () => {
       screen.getByRole("button", { name: "Add Iced Tea to favorites" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "My Favorites" }),
     ).toBeInTheDocument();
@@ -357,6 +499,7 @@ describe("MenuCatalogView", () => {
     // The Tea section only mounts once the view flips back to the menu, so the
     // scroll must be deferred until then.
     fireEvent.click(screen.getAllByRole("button", { name: /Tea.*2 items/ })[0]);
+    await settleViewTransition();
 
     expect(
       screen.getByRole("heading", { name: "Riverside Cafe" }),
@@ -366,7 +509,7 @@ describe("MenuCatalogView", () => {
     expect(scrollIntoView.mock.instances).toContain(teaSection);
   });
 
-  it("scrolls to the drawer-chosen category when leaving favorites", () => {
+  it("scrolls to the drawer-chosen category when leaving favorites", async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     const onCloseDrawer = vi.fn();
@@ -384,6 +527,7 @@ describe("MenuCatalogView", () => {
       screen.getByRole("button", { name: "Add Iced Tea to favorites" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
 
     // Open the drawer while browsing favorites, then pick a category from it.
     rerender(view(true));
@@ -391,6 +535,24 @@ describe("MenuCatalogView", () => {
     fireEvent.click(within(drawer).getByRole("button", { name: /Tea.*2 items/ }));
 
     expect(onCloseDrawer).toHaveBeenCalled();
+    // The scroll must NOT run yet: the drawer still holds the body-scroll lock,
+    // and releasing it on unmount resets any scroll started before then.
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    // Close the drawer and let its exit animation finish.
+    rerender(view(false));
+    act(() => {
+      fireEvent.animationEnd(
+        screen.getByRole("dialog", { name: "Menu navigation" }),
+      );
+    });
+
+    expect(
+      screen.queryByRole("dialog", { name: "Menu navigation" }),
+    ).not.toBeInTheDocument();
+
+    // Only after the view swap lands do the menu sections exist to scroll to.
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "Riverside Cafe" }),
     ).toBeInTheDocument();
@@ -399,16 +561,18 @@ describe("MenuCatalogView", () => {
     );
   });
 
-  it("removing the last favorite reveals an empty state that returns to the menu", () => {
+  it("removing the last favorite reveals an empty state that returns to the menu", async () => {
     render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "No favorites yet" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Browse the menu" }));
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "Iced Tea" }),
     ).toBeInTheDocument();
@@ -417,13 +581,14 @@ describe("MenuCatalogView", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("live-removes a favorite from the favorites view when unfavorited", () => {
+  it("live-removes a favorite from the favorites view when unfavorited", async () => {
     render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
 
     fireEvent.click(
       screen.getByRole("button", { name: "Add Iced Tea to favorites" }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "Iced Tea" }),
     ).toBeInTheDocument();
@@ -436,10 +601,11 @@ describe("MenuCatalogView", () => {
     ).toBeInTheDocument();
   });
 
-  it("choosing a category exits the favorites view back to the menu", () => {
+  it("choosing a category exits the favorites view back to the menu", async () => {
     render(<MenuCatalogView locationName="Riverside Cafe" menu={searchMenu} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+    await settleViewTransition();
     expect(
       screen.getByRole("heading", { name: "No favorites yet" }),
     ).toBeInTheDocument();
@@ -447,6 +613,7 @@ describe("MenuCatalogView", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: /Tea.*2 items/ })[0],
     );
+    await settleViewTransition();
     expect(
       screen.queryByRole("heading", { name: "No favorites yet" }),
     ).not.toBeInTheDocument();

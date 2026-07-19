@@ -4,7 +4,12 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
   readonly size?: number;
 }
 
-function Icon({ size = 20, ...props }: IconProps) {
+// Internal wrapper: unlike the exported IconProps, this one accepts the path
+// children each icon supplies.
+function Icon({
+  size = 20,
+  ...props
+}: SVGProps<SVGSVGElement> & { readonly size?: number }) {
   return (
     <svg
       aria-hidden="true"
@@ -263,6 +268,46 @@ export function MenuGridIcon(props: IconProps) {
       <rect height="7" rx="1.5" width="7" x="13" y="4" />
       <rect height="7" rx="1.5" width="7" x="4" y="13" />
       <rect height="7" rx="1.5" width="7" x="13" y="13" />
+    </Icon>
+  );
+}
+
+// Brand marks are solid glyphs rather than the line style used elsewhere, so
+// they stay recognisable at 20px; fill/stroke are overridden accordingly.
+export function GithubIcon(props: IconProps) {
+  return (
+    <Icon fill="currentColor" stroke="none" {...props}>
+      <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.17 6.84 9.5.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.7-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.8c.85 0 1.71.11 2.51.34 1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85 0 1.34-.01 2.42-.01 2.75 0 .27.18.58.69.48A10 10 0 0 0 22 12c0-5.52-4.48-10-10-10Z" />
+    </Icon>
+  );
+}
+
+export function LinkedinIcon(props: IconProps) {
+  return (
+    <Icon fill="currentColor" stroke="none" {...props}>
+      <path d="M5 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z" />
+      <path d="M3.1 9.8h3.8V21H3.1z" />
+      <path d="M9.6 9.8h3.6v1.6h.05c.5-.92 1.74-1.9 3.6-1.9 3.85 0 4.56 2.42 4.56 5.6V21h-3.8v-4.9c0-1.17-.02-2.68-1.7-2.68-1.7 0-1.96 1.28-1.96 2.6V21H9.6z" />
+    </Icon>
+  );
+}
+
+export function GlobeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.1 2.3 3.3 5.3 3.3 8.5s-1.2 6.2-3.3 8.5c-2.1-2.3-3.3-5.3-3.3-8.5S9.9 5.8 12 3.5Z" />
+    </Icon>
+  );
+}
+
+export function ExternalLinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h6v6" />
+      <path d="m20 4-8.5 8.5" />
+      <path d="M18.5 14.5V19a1.8 1.8 0 0 1-1.8 1.8H5.3A1.8 1.8 0 0 1 3.5 19V7.6a1.8 1.8 0 0 1 1.8-1.8h4.6" />
     </Icon>
   );
 }

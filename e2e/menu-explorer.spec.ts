@@ -418,7 +418,44 @@ test("leaving favorites for a category scrolls to that section, not the top", as
   await expect(
     page.getByRole("heading", { level: 2, name: "Pastries" }),
   ).toBeInViewport();
-  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  // Poll: the deferred smooth scroll is still animating when the heading first
+  // enters the viewport, so a single immediate read can race it.
+  await expect
+    .poll(async () => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
+});
+
+test("a drawer category choice scrolls to that section from plain menu mode", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "Mobile 375px", "drawer is mobile-only");
+
+  await mockApplication(page);
+  await page.goto("/");
+
+  const selector = page.getByRole("button", { name: "Restaurant location" });
+  await selector.click();
+  await page.getByRole("option", { name: "Riverside Cafe" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Riverside Iced Tea" }),
+  ).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+
+  // No favorites detour: the drawer holds a body-scroll lock until its exit
+  // animation ends, and releasing that lock resets an in-flight smooth scroll.
+  // The scroll must therefore outlive the drawer, not race it.
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const drawer = page.getByRole("dialog", { name: "Menu navigation" });
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole("button", { name: /Pastries.*3 items/ }).click();
+  await expect(drawer).toHaveCount(0);
+
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Pastries" }),
+  ).toBeInViewport();
+  await expect
+    .poll(async () => page.evaluate(() => window.scrollY))
+    .toBeGreaterThan(0);
 });
 
 test("a rapid location switch shows a skeleton and cannot reveal the older menu", async ({ page }) => {

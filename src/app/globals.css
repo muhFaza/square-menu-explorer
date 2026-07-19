@@ -788,25 +788,6 @@ select {
   color: var(--muted);
 }
 
-.category-section__view-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-  padding: 6px 4px;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: var(--espresso);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  transition: opacity 0.16s ease;
-}
-
-.category-section__view-all:hover {
-  opacity: 0.72;
-}
-
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1303,8 +1284,155 @@ span.menu-loading-skeleton__image {
   border-radius: 10px;
 }
 
+/* ---------- About view ---------- */
+.about-section {
+  margin-top: 28px;
+}
+
+.about-section h2 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--espresso-deep);
+}
+
+.about-prose {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.about-links {
+  display: grid;
+  /* Held to the same measure as the prose and credits so the whole page reads
+     as one column; two-up on desktop keeps labels off a second line. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  max-width: 62ch;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.about-link {
+  display: flex;
+  height: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--surface);
+  /* A heavier border than the static credit cards, so the two never read as
+     the same kind of surface. */
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  box-shadow: 0 1px 0 rgb(var(--shadow-rgb) / 4%);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.about-link:hover {
+  background: var(--surface-soft);
+  border-color: var(--espresso);
+  box-shadow: 0 10px 22px rgb(var(--shadow-rgb) / 12%);
+  transform: translateY(-2px);
+}
+
+.about-link__arrow {
+  display: flex;
+  align-self: flex-start;
+  margin-top: 2px;
+  margin-left: auto;
+  color: var(--field-icon);
+  transition:
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+.about-link:hover .about-link__arrow,
+.about-link:focus-visible .about-link__arrow {
+  color: var(--espresso);
+  transform: translate(2px, -2px);
+}
+
+.about-link__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--on-accent);
+  background: var(--espresso);
+  border-radius: 12px;
+}
+
+.about-link__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-link__text strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--espresso);
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--shadow-rgb) / 30%);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.about-link:hover .about-link__text strong {
+  text-decoration-color: currentcolor;
+}
+
+.about-link__text span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.about-credits {
+  display: grid;
+  max-width: 62ch;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.about-credits li {
+  padding: 14px 16px;
+  color: var(--muted);
+  line-height: 1.6;
+  /* Deliberately flatter than .about-link: no elevation, softer fill, and a
+     lighter border, so a static card never invites a click. */
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: 12px;
+}
+
+.about-credits strong {
+  color: var(--ink);
+}
+
 .menu-transition {
   animation: menu-enter 180ms ease-out both;
+}
+
+/* The outgoing view holds its faded-out end state (`both`) until the incoming
+   view replaces it, so the swap never flashes the old content back in. */
+.menu-transition.is-leaving {
+  animation: menu-exit 120ms ease-in both;
 }
 
 /* ---------- Focus visibility ---------- */
@@ -1312,11 +1440,11 @@ span.menu-loading-skeleton__image {
 .location-control__option:focus-visible,
 .primary-action:focus-visible,
 .category-navigation button:focus-visible,
+.about-link:focus-visible,
 .favorites-nav:focus-visible,
 /* :has(:focus-visible), not :focus-within — a mouse click on the heart must
    not ring the whole card; keyboard focus still does. */
-.menu-card:has(:focus-visible),
-.category-section__view-all:focus-visible {
+.menu-card:has(:focus-visible) {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
@@ -1361,6 +1489,18 @@ span.menu-loading-skeleton__image {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes menu-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(6px);
   }
 }
 
@@ -1889,6 +2029,7 @@ span.menu-loading-skeleton__image {
   .category-skeleton span,
   .menu-loading-skeleton span,
   .menu-transition,
+  .menu-transition.is-leaving,
   .spinner,
   .menu-card,
   .menu-card__image img,
@@ -1896,7 +2037,8 @@ span.menu-loading-skeleton__image {
   .menu-card__favorite svg,
   .category-navigation button,
   .favorites-nav,
-  .category-section__view-all,
+  .about-link,
+  .about-link__arrow,
   .mobile-drawer__scrim,
   .mobile-drawer__panel,
   .mobile-drawer.is-closing .mobile-drawer__scrim,
@@ -1906,7 +2048,12 @@ span.menu-loading-skeleton__image {
     transition: none;
   }
 
-  .menu-card:hover {
+  .menu-card:hover,
+  .about-link:hover {
+    transform: none;
+  }
+
+  .about-link:hover .about-link__arrow {
     transform: none;
   }
 

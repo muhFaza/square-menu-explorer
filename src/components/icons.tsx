@@ -72,24 +72,6 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
-export function ArrowRightIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </Icon>
-  );
-}
-
-export function SlidersIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M4 7h11M4 17h7" />
-      <circle cx="18" cy="7" r="2.2" />
-      <circle cx="14" cy="17" r="2.2" />
-    </Icon>
-  );
-}
-
 export function HomeIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -210,37 +192,11 @@ export function HeartSolidIcon(props: IconProps) {
   );
 }
 
-export function ReceiptIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M6 3h12v18l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3L6 21V3Z" />
-      <path d="M9 8h6M9 12h6" />
-    </Icon>
-  );
-}
-
 export function InfoIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 11v5M12 8h.01" />
-    </Icon>
-  );
-}
-
-export function BellIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" />
-      <path d="M10 19a2 2 0 0 0 4 0" />
-    </Icon>
-  );
-}
-
-export function PlusIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M12 5v14M5 12h14" />
     </Icon>
   );
 }
@@ -257,17 +213,6 @@ export function MenuIcon(props: IconProps) {
   return (
     <Icon {...props}>
       <path d="M4 7h16M4 12h16M4 17h16" />
-    </Icon>
-  );
-}
-
-export function MenuGridIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <rect height="7" rx="1.5" width="7" x="4" y="4" />
-      <rect height="7" rx="1.5" width="7" x="13" y="4" />
-      <rect height="7" rx="1.5" width="7" x="4" y="13" />
-      <rect height="7" rx="1.5" width="7" x="13" y="13" />
     </Icon>
   );
 }

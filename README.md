@@ -1,5 +1,7 @@
 # Square Menu Explorer
 
+[![CI](https://github.com/muhFaza/square-menu-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/muhFaza/square-menu-explorer/actions/workflows/ci.yml)
+
 A mobile-first menu browser built for the Per Diem full-stack coding challenge. It reads live catalog and location data from Square through server-side Next.js Route Handlers, so the access token never reaches the browser.
 
 **Live demo: [square.muhammadfaza.com](https://square.muhammadfaza.com)**
@@ -8,12 +10,14 @@ A mobile-first menu browser built for the Per Diem full-stack coding challenge. 
 | --- | --- |
 | ![Desktop view of the menu](assets/screenshot-desktop.jpg) | ![Mobile view of the menu](assets/screenshot-mobile.jpg) |
 
-Lighthouse on the deployed app — **accessibility 100 on both**:
+Lighthouse on the deployed app:
 
-| | Performance | Accessibility | Best Practices | SEO |
-| --- | :---: | :---: | :---: | :---: |
-| Desktop | 100 | 100 | 96 | 100 |
-| Mobile | 99 | 100 | 96 | 100 |
+| | Accessibility | Best Practices | SEO |
+| --- | :---: | :---: | :---: |
+| Desktop | 100 | 100 | 100 |
+| Mobile | 100 | 100 | 100 |
+
+Performance is measured separately because it moves with the network: roughly 95 on desktop and 85–90 on mobile across repeated runs. The server responds in about 30 ms; mobile largest-contentful-paint sits near 4 s because Square serves item images cross-origin at full size. Routing them through `next/image` is the next planned improvement.
 
 Assessing this against the brief? [`REQUIREMENTS.md`](REQUIREMENTS.md) maps every requirement to the code that implements it and the test that covers it. `pnpm test` runs all of them and needs no credentials.
 

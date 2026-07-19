@@ -30,7 +30,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm start --port ${productionPort}`,
+    // The standalone server reads its host and port from the environment
+    // rather than CLI flags, and is the same entrypoint the Docker image runs.
+    command: "pnpm start",
+    env: {
+      HOSTNAME: "127.0.0.1",
+      PORT: String(productionPort),
+    },
     url: `http://127.0.0.1:${productionPort}`,
     reuseExistingServer: false,
     timeout: 120_000,

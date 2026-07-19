@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/prepare-standalone.mjs && node .next/standalone/server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix && tsc --noEmit",
     "typecheck": "tsc --noEmit",

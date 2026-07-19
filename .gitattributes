@@ -1,0 +1,5 @@
+# Normalize text files to LF in the repository and on checkout, on every
+# platform. Without this, the stored line endings depend on each contributor's
+# local core.autocrlf setting, and a single CRLF commit makes every line of the
+# file read as changed for everyone else.
+* text=auto eol=lf

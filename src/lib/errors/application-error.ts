@@ -44,3 +44,12 @@ export class ConfigurationError extends ApplicationError {
     this.name = "ConfigurationError";
   }
 }
+
+export function createCatalogContractError(message: string): ApplicationError {
+  return new ApplicationError({
+    code: "SQUARE_UNAVAILABLE",
+    statusCode: 502,
+    message,
+    publicMessage: "Menu data is temporarily unavailable.",
+  });
+}

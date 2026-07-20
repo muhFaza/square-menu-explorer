@@ -10,8 +10,20 @@ export interface LocationAddressDto {
   readonly country: string | null;
 }
 
+export const WEEKDAY_ORDER = [
+  "MON",
+  "TUE",
+  "WED",
+  "THU",
+  "FRI",
+  "SAT",
+  "SUN",
+] as const;
+
+export type WeekdayCode = (typeof WEEKDAY_ORDER)[number];
+
 export interface LocationBusinessHoursPeriodDto {
-  readonly dayOfWeek: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+  readonly dayOfWeek: WeekdayCode;
   readonly startLocalTime: string; // "HH:MM" or "HH:MM:SS" as provided by Square
   readonly endLocalTime: string;
 }

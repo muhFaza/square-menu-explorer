@@ -6,7 +6,7 @@ import type {
   SearchCatalogObjectsResponse,
 } from "square";
 
-import { ApplicationError } from "@/lib/errors/application-error";
+import { createCatalogContractError } from "@/lib/errors/application-error";
 import { getSquareClient } from "@/lib/square/client";
 import {
   mapSquareResponseErrors,
@@ -36,15 +36,6 @@ export interface SquareCatalogGateway {
 
 export interface CatalogPaginationOptions {
   readonly maxPages?: number;
-}
-
-function createCatalogContractError(message: string): ApplicationError {
-  return new ApplicationError({
-    code: "SQUARE_UNAVAILABLE",
-    statusCode: 502,
-    message,
-    publicMessage: "Menu data is temporarily unavailable.",
-  });
 }
 
 function requireValidCursor(cursor: unknown): string {

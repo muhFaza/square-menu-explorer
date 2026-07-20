@@ -109,13 +109,6 @@ async function main() {
     environment: SquareEnvironment.Sandbox,
   });
 
-  const CATEGORY = {
-    coffee: "YHHU5XO3ZDZL35RP6BZ7LULF",
-    tea: "MQRFNPWQELXJP2VPYOLC2QBB",
-    pastries: "TKUC36KNXPP6TEYCKXNWEWWI",
-    breakfast: "UKBI7IUBFBSZOVKVG3EER3XM",
-  };
-
   const summary = [];
 
   // --- Locations -----------------------------------------------------------
@@ -192,6 +185,85 @@ async function main() {
   const harborId = locationIdByName.get("Harbor Point Roastery");
   if (!defaultId || !riversideId || !harborId) {
     throw new Error("Could not resolve all required location IDs after seeding.");
+  }
+
+  // --- Categories ----------------------------------------------------------
+  // Resolve category IDs by name so the seeder is portable across accounts.
+  const desiredCategories = [
+    { key: "coffee", name: "Coffee" },
+    { key: "tea", name: "Tea" },
+    { key: "pastries", name: "Pastries" },
+  ];
+
+  const categoryIdByName = new Map();
+  let categoryCursor;
+  do {
+    const page = await client.catalog.search({
+      objectTypes: ["CATEGORY"],
+      includeRelatedObjects: false,
+      ...(categoryCursor ? { cursor: categoryCursor } : {}),
+    });
+    if (page.errors && page.errors.length > 0) {
+      throw new Error(`Category search failed: ${toJson(page.errors)}`);
+    }
+    for (const object of page.objects ?? []) {
+      if (object.type === "CATEGORY" && object.categoryData?.name) {
+        categoryIdByName.set(object.categoryData.name, object.id);
+      }
+    }
+    categoryCursor = page.cursor;
+  } while (categoryCursor);
+
+  const createCategoryObjects = [];
+  for (const desired of desiredCategories) {
+    if (categoryIdByName.has(desired.name)) {
+      summary.push({
+        name: desired.name,
+        kind: "category",
+        action: "skipped (exists)",
+        availability: "n/a",
+      });
+      continue;
+    }
+    createCategoryObjects.push({
+      type: "CATEGORY",
+      id: `#category-${desired.key}`,
+      presentAtAllLocations: true,
+      categoryData: { name: desired.name },
+    });
+    summary.push({
+      name: desired.name,
+      kind: "category",
+      action: "created",
+      availability: "n/a",
+    });
+  }
+
+  if (createCategoryObjects.length > 0) {
+    const response = await client.catalog.batchUpsert({
+      idempotencyKey: randomUUID(),
+      batches: [{ objects: createCategoryObjects }],
+    });
+    if (response.errors && response.errors.length > 0) {
+      throw new Error(`Category creation failed: ${toJson(response.errors)}`);
+    }
+    for (const object of response.objects ?? []) {
+      if (object.type === "CATEGORY" && object.categoryData?.name) {
+        categoryIdByName.set(object.categoryData.name, object.id);
+      }
+    }
+  }
+
+  const CATEGORY = Object.fromEntries(
+    desiredCategories.map((desired) => [
+      desired.key,
+      categoryIdByName.get(desired.name),
+    ]),
+  );
+  for (const desired of desiredCategories) {
+    if (!CATEGORY[desired.key]) {
+      throw new Error(`Could not resolve category ID for "${desired.name}".`);
+    }
   }
 
   // --- Existing catalog items ---------------------------------------------

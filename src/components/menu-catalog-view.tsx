@@ -24,6 +24,7 @@ import { MobileDrawer } from "@/components/mobile-drawer";
 import { SearchBar } from "@/components/search-bar";
 import { useFavorites } from "@/hooks/use-favorites";
 import type { MenuCatalogState } from "@/hooks/use-menu-catalog";
+import type { CatalogCategoryGroupDto } from "@/types/catalog";
 
 type ViewMode = "menu" | "favorites" | "about";
 
@@ -48,6 +49,51 @@ function MenuLoadingState({ locationName }: { readonly locationName: string }) {
         Loading menu for {locationName}.
       </p>
       <MenuLoadingSkeleton />
+    </section>
+  );
+}
+
+interface CategorySectionProps {
+  readonly category: CatalogCategoryGroupDto;
+  // The menu view tracks sections for scroll-spy and deep-link ids; Favorites does not.
+  readonly tracked?: boolean;
+  // Only the first menu section's leading cards can be the LCP image.
+  readonly priorityImages?: boolean;
+}
+
+function CategorySection({
+  category,
+  tracked = false,
+  priorityImages = false,
+}: CategorySectionProps) {
+  return (
+    <section
+      className="category-section"
+      data-category-id={tracked ? category.id : undefined}
+      id={tracked ? `category-${category.id}` : undefined}
+    >
+      <header className="category-section__header">
+        <div className="category-section__title">
+          <span aria-hidden="true" className="category-section__icon">
+            <CategoryIcon name={category.name} size={20} />
+          </span>
+          <div>
+            <h2>{category.name}</h2>
+            <span className="category-section__count">
+              {category.items.length} items
+            </span>
+          </div>
+        </div>
+      </header>
+      <div className="menu-grid">
+        {category.items.map((item, itemIndex) => (
+          <MenuItemCard
+            item={item}
+            key={item.id}
+            priority={priorityImages && itemIndex < 4}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -542,29 +588,7 @@ export function MenuCatalogView({
                     <p>Your favorited items available at {locationName}.</p>
                   </header>
                   {favoriteCategories.map((category) => (
-                    <section className="category-section" key={category.id}>
-                      <header className="category-section__header">
-                        <div className="category-section__title">
-                          <span
-                            aria-hidden="true"
-                            className="category-section__icon"
-                          >
-                            <CategoryIcon name={category.name} size={20} />
-                          </span>
-                          <div>
-                            <h2>{category.name}</h2>
-                            <span className="category-section__count">
-                              {category.items.length} items
-                            </span>
-                          </div>
-                        </div>
-                      </header>
-                      <div className="menu-grid">
-                        {category.items.map((item) => (
-                          <MenuItemCard item={item} key={item.id} />
-                        ))}
-                      </div>
-                    </section>
+                    <CategorySection category={category} key={category.id} />
                   ))}
                 </div>
               )
@@ -610,40 +634,12 @@ export function MenuCatalogView({
                   <p>Choose a category or browse every available menu item.</p>
                 </header>
                 {filteredCategories.map((category, sectionIndex) => (
-                  <section
-                    className="category-section"
-                    data-category-id={category.id}
-                    id={`category-${category.id}`}
+                  <CategorySection
+                    category={category}
                     key={category.id}
-                  >
-                    <header className="category-section__header">
-                      <div className="category-section__title">
-                        <span
-                          aria-hidden="true"
-                          className="category-section__icon"
-                        >
-                          <CategoryIcon name={category.name} size={20} />
-                        </span>
-                        <div>
-                          <h2>{category.name}</h2>
-                          <span className="category-section__count">
-                            {category.items.length} items
-                          </span>
-                        </div>
-                      </div>
-                    </header>
-                    <div className="menu-grid">
-                      {category.items.map((item, itemIndex) => (
-                        <MenuItemCard
-                          item={item}
-                          key={item.id}
-                          // Only the first section's leading cards can be the
-                          // LCP image; everything below the fold stays lazy.
-                          priority={sectionIndex === 0 && itemIndex < 4}
-                        />
-                      ))}
-                    </div>
-                  </section>
+                    priorityImages={sectionIndex === 0}
+                    tracked
+                  />
                 ))}
               </div>
             )}

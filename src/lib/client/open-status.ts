@@ -1,3 +1,4 @@
+import { WEEKDAY_ORDER } from "@/types/locations";
 import type {
   LocationBusinessHoursPeriodDto,
   LocationDto,
@@ -13,16 +14,6 @@ export type OpenStatus =
   | { readonly kind: "unknown" };
 
 type WeekdayCode = LocationBusinessHoursPeriodDto["dayOfWeek"];
-
-const WEEKDAY_ORDER: readonly WeekdayCode[] = [
-  "MON",
-  "TUE",
-  "WED",
-  "THU",
-  "FRI",
-  "SAT",
-  "SUN",
-];
 
 const SHORT_WEEKDAY_LABEL: Record<WeekdayCode, string> = {
   MON: "Mon",

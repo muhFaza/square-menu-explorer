@@ -1,24 +1,18 @@
 import type { Address, BusinessHours, Location } from "square";
 
 import { ApplicationError } from "@/lib/errors/application-error";
+import { nullableTrimmed } from "@/lib/text/strings";
+import { WEEKDAY_ORDER } from "@/types/locations";
 import type {
   LocationAddressDto,
   LocationBusinessHoursPeriodDto,
   LocationDto,
 } from "@/types/locations";
 
-const BUSINESS_HOURS_DAYS: readonly LocationBusinessHoursPeriodDto["dayOfWeek"][] =
-  ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-
 function isBusinessHoursDay(
   value: string,
 ): value is LocationBusinessHoursPeriodDto["dayOfWeek"] {
-  return (BUSINESS_HOURS_DAYS as readonly string[]).includes(value);
-}
-
-function nullableTrimmed(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
+  return (WEEKDAY_ORDER as readonly string[]).includes(value);
 }
 
 function requiredTrimmedLocationField(

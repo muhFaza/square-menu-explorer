@@ -3,6 +3,7 @@ import {
   getServerEnvironment,
   type ServerEnvironment,
 } from "@/lib/config/env";
+import { sharedLocationsCache } from "@/lib/locations/locations-cache";
 import { ApplicationError } from "@/lib/errors/application-error";
 import { toApiErrorResponse } from "@/lib/http/api-error";
 import { createApiJsonResponse } from "@/lib/http/json-response";
@@ -22,12 +23,13 @@ export const dynamic = "force-dynamic";
 const CATALOG_UPDATED_EVENT_TYPE = "catalog.version.updated";
 const SIGNATURE_HEADER = "x-square-hmacsha256-signature";
 
-interface CatalogCacheInvalidator {
+interface CacheInvalidator {
   invalidateAll(): void;
 }
 
 interface SquareWebhookHandlerDependencies {
-  readonly cache: CatalogCacheInvalidator;
+  readonly catalogCache: CacheInvalidator;
+  readonly locationsCache: CacheInvalidator;
   readonly getEnvironment?: () => Readonly<ServerEnvironment>;
 }
 
@@ -64,7 +66,8 @@ function malformedBodyError(): ApplicationError {
 }
 
 export function createSquareWebhookHandler({
-  cache,
+  catalogCache,
+  locationsCache,
   getEnvironment = getServerEnvironment,
 }: SquareWebhookHandlerDependencies): RequestHandler {
   return async (request, { requestId }) => {
@@ -94,7 +97,8 @@ export function createSquareWebhookHandler({
       }
 
       if (event.type === CATALOG_UPDATED_EVENT_TYPE) {
-        cache.invalidateAll();
+        catalogCache.invalidateAll();
+        locationsCache.invalidateAll();
         return createApiJsonResponse(
           { received: true, processed: true },
           requestId,
@@ -113,18 +117,20 @@ export function createSquareWebhookHandler({
 }
 
 export function createSquareWebhookPostHandler({
-  cache,
+  catalogCache,
+  locationsCache,
   getEnvironment,
   requestLogging,
 }: SquareWebhookPostHandlerDependencies): (
   request: Request,
 ) => Promise<Response> {
   return withRequestLogging(
-    createSquareWebhookHandler({ cache, getEnvironment }),
+    createSquareWebhookHandler({ catalogCache, locationsCache, getEnvironment }),
     requestLogging,
   );
 }
 
 export const POST = createSquareWebhookPostHandler({
-  cache: sharedCatalogCache,
+  catalogCache: sharedCatalogCache,
+  locationsCache: sharedLocationsCache,
 });

@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+import { AsyncTtlCache } from "@/lib/cache/async-ttl-cache";
 import type { HttpRequestLog } from "@/lib/logging/request-logger";
 import { createSquareLocationsGateway } from "@/lib/square/locations-gateway";
 import type { SquareLocationsClient } from "@/lib/square/locations-gateway";
+import type { LocationsResponse } from "@/types/locations";
 
 import {
   createLocationsGetHandler,
@@ -23,6 +25,7 @@ function createTestGetHandler(
 
   return createLocationsGetHandler({
     gateway,
+    cache: new AsyncTtlCache<LocationsResponse>(),
     requestLogging: {
       clock: vi.fn().mockReturnValueOnce(10).mockReturnValueOnce(25),
       idFactory: () => "request-locations",
@@ -111,6 +114,30 @@ describe("GET /api/locations integration", () => {
         durationMs: 15,
       },
     ]);
+  });
+
+  it("serves a repeat request from the cache without a second Square call", async () => {
+    const list = vi.fn().mockResolvedValue({
+      locations: [{ id: "active-id", name: "Active cafe", status: "ACTIVE" }],
+    });
+    const get = createLocationsGetHandler({
+      gateway: createSquareLocationsGateway(() => ({ locations: { list } })),
+      cache: new AsyncTtlCache<LocationsResponse>(),
+      requestLogging: {
+        clock: () => 0,
+        idFactory: () => "request-locations-cache",
+        sink: () => {},
+      },
+    });
+    const request = () => new Request("https://example.test/api/locations");
+
+    const first = await get(request());
+    const second = await get(request());
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual(await first.json());
+    expect(list).toHaveBeenCalledOnce();
   });
 
   it("returns a successful empty list when Square omits locations", async () => {

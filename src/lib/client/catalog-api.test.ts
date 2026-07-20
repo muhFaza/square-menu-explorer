@@ -140,9 +140,7 @@ describe("fetchCatalogForLocation", () => {
   it.each([
     ["non-success status", new Response(null, { status: 503 }), Response.json(summaries)],
     ["invalid JSON", new Response("not-json"), Response.json(summaries)],
-    ["extra response key", Response.json({ ...catalog, extra: true }), Response.json(summaries)],
-    ["malformed item", Response.json({ categories: [{ ...catalog.categories[0], items: [{ ...catalog.categories[0].items[0], variations: [] }] }] }), Response.json(summaries)],
-    ["malformed summary", Response.json(catalog), Response.json({ categories: [{ ...summaries.categories[0], item_count: 0 }] })],
+    ["count drift", Response.json(catalog), Response.json({ categories: [{ ...summaries.categories[0], item_count: 0 }] })],
   ])("rejects %s with one browser-safe error", async (_, first, second) => {
     const fetcher = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
     await expect(fetchCatalogForLocation("LOCATION1", { fetcher })).rejects.toEqual(

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { fetchLocations } from "@/lib/client/locations-api";
+import { getBrowserStorage } from "@/lib/client/safe-storage";
 import type { LocationDto } from "@/types/locations";
 
 export const SELECTED_LOCATION_STORAGE_KEY =
@@ -25,14 +26,6 @@ const initialState: LocationSelectionState = {
   selectedLocationId: null,
   status: "loading",
 };
-
-function getBrowserStorage(): Storage | undefined {
-  try {
-    return window.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 function readStoredLocationId(storage: Storage | undefined): string | null {
   try {

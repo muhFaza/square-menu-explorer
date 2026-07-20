@@ -17,7 +17,7 @@ Lighthouse on the deployed app:
 | Desktop | 100 | 100 | 100 |
 | Mobile | 100 | 100 | 100 |
 
-Performance is measured separately because it moves with the network: roughly 95 on desktop and 85–90 on mobile across repeated runs. The server responds in about 30 ms; mobile largest-contentful-paint sits near 4 s because Square serves item images cross-origin at full size. Routing them through `next/image` is the next planned improvement.
+Performance is measured separately because it moves with the network: roughly 95 on desktop and 91–92 on mobile across repeated runs. Item images are served through `next/image` — responsive `sizes`, `priority` on the above-fold cards, and a 31-day cache — which keeps mobile largest-contentful-paint around 3.3–3.4 s. The remaining bottleneck is that the app is fully client-rendered, so first paint waits on hydration plus a serial `/api/locations` → `/api/catalog` fetch chain; server-rendering the initial data is the next planned improvement.
 
 Assessing this against the brief? [`REQUIREMENTS.md`](REQUIREMENTS.md) maps every requirement to the code that implements it and the test that covers it. `pnpm test` runs all of them and needs no credentials.
 

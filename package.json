@@ -16,7 +16,12 @@
     "test:watch": "vitest",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:built": "playwright test",
-    "verify": "pnpm lint:fix && pnpm test && pnpm build && pnpm test:e2e:built"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e:built"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": ">=8.5.10"
+    }
   },
   "dependencies": {
     "next": "16.2.10",

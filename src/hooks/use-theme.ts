@@ -2,6 +2,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import { getBrowserStorage } from "@/lib/client/safe-storage";
+
 export const THEME_STORAGE_KEY = "menu-explorer-theme";
 
 export type Theme = "light" | "dark";
@@ -11,14 +13,6 @@ const listeners = new Set<() => void>();
 function emit(): void {
   for (const listener of listeners) {
     listener();
-  }
-}
-
-function getBrowserStorage(): Storage | undefined {
-  try {
-    return window.localStorage;
-  } catch {
-    return undefined;
   }
 }
 

@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { AsyncTtlCache } from "@/lib/catalog/catalog-cache";
+import { AsyncTtlCache } from "@/lib/cache/async-ttl-cache";
 import { createCatalogService } from "@/lib/catalog/catalog-service";
 import type { HttpRequestLog } from "@/lib/logging/request-logger";
 import { createSquareCatalogGateway } from "@/lib/square/catalog-gateway";
@@ -16,6 +16,7 @@ import type { SquareCatalogClient } from "@/lib/square/catalog-gateway";
 import { createSquareLocationsGateway } from "@/lib/square/locations-gateway";
 import type { SquareLocationsClient } from "@/lib/square/locations-gateway";
 import type { CatalogResponse } from "@/types/catalog";
+import type { LocationsResponse } from "@/types/locations";
 
 import {
   createCatalogCategoriesGetHandler,
@@ -111,13 +112,16 @@ function createTestHandlers({
   const catalogGateway = createSquareCatalogGateway(() => ({
     catalog: { search },
   }));
+  const locationsCache = new AsyncTtlCache<LocationsResponse>();
   const catalogService = createCatalogService({
     locationsGateway,
+    locationsCache,
     catalogGateway,
     cache,
   });
   const categoriesService = createCatalogService({
     locationsGateway,
+    locationsCache,
     catalogGateway,
     cache,
   });
@@ -408,7 +412,8 @@ describe("catalog Route Handler integration", () => {
     expect(failed.status).toBe(503);
     const recovered = await catalog(request());
     expect(recovered.status).toBe(200);
-    expect(list).toHaveBeenCalledTimes(2);
+    // The location list is cached, so the catalog retry does not re-list it.
+    expect(list).toHaveBeenCalledOnce();
     expect(search).toHaveBeenCalledTimes(3);
   });
 });

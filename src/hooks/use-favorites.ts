@@ -2,6 +2,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import { getBrowserStorage } from "@/lib/client/safe-storage";
+
 export const FAVORITES_STORAGE_KEY = "menu-explorer-favorites";
 
 const EMPTY_FAVORITES: ReadonlySet<string> = new Set();
@@ -18,14 +20,6 @@ let cacheInitialized = false;
 function emit(): void {
   for (const listener of listeners) {
     listener();
-  }
-}
-
-function getBrowserStorage(): Storage | undefined {
-  try {
-    return window.localStorage;
-  } catch {
-    return undefined;
   }
 }
 

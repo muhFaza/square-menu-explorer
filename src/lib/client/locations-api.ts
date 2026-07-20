@@ -1,31 +1,4 @@
-import type {
-  LocationAddressDto,
-  LocationBusinessHoursPeriodDto,
-  LocationDto,
-  LocationsResponse,
-} from "@/types/locations";
-
-const addressKeys = [
-  "addressLine1",
-  "addressLine2",
-  "addressLine3",
-  "locality",
-  "sublocality",
-  "administrativeDistrictLevel1",
-  "administrativeDistrictLevel2",
-  "postalCode",
-  "country",
-] as const satisfies readonly (keyof LocationAddressDto)[];
-
-const businessHoursDays = [
-  "MON",
-  "TUE",
-  "WED",
-  "THU",
-  "FRI",
-  "SAT",
-  "SUN",
-] as const satisfies readonly LocationBusinessHoursPeriodDto["dayOfWeek"][];
+import type { LocationDto, LocationsResponse } from "@/types/locations";
 
 type Fetcher = typeof fetch;
 
@@ -41,61 +14,12 @@ export class LocationsApiError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return typeof value === "string" || value === null;
-}
-
-function isLocationAddress(value: unknown): value is LocationAddressDto {
+// Same-repo backend, so only the top-level envelope is checked before typing.
+function hasLocationsArray(value: unknown): boolean {
   return (
-    isRecord(value) &&
-    addressKeys.every((key) => isNullableString(value[key]))
-  );
-}
-
-function isBusinessHoursPeriod(
-  value: unknown,
-): value is LocationBusinessHoursPeriodDto {
-  return (
-    isRecord(value) &&
-    typeof value.dayOfWeek === "string" &&
-    (businessHoursDays as readonly string[]).includes(value.dayOfWeek) &&
-    typeof value.startLocalTime === "string" &&
-    typeof value.endLocalTime === "string"
-  );
-}
-
-function isBusinessHours(
-  value: unknown,
-): value is readonly LocationBusinessHoursPeriodDto[] | null {
-  return (
-    value === null ||
-    (Array.isArray(value) && value.every(isBusinessHoursPeriod))
-  );
-}
-
-function isLocation(value: unknown): value is LocationDto {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    value.id.length > 0 &&
-    typeof value.name === "string" &&
-    value.name.length > 0 &&
-    value.status === "ACTIVE" &&
-    (value.address === null || isLocationAddress(value.address)) &&
-    isNullableString(value.timezone) &&
-    isBusinessHours(value.businessHours)
-  );
-}
-
-function isLocationsResponse(value: unknown): value is LocationsResponse {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.locations) &&
-    value.locations.every(isLocation)
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { locations?: unknown }).locations)
   );
 }
 
@@ -119,9 +43,9 @@ export async function fetchLocations({
     throw new LocationsApiError();
   }
 
-  if (!isLocationsResponse(body)) {
+  if (!hasLocationsArray(body)) {
     throw new LocationsApiError();
   }
 
-  return body.locations;
+  return (body as LocationsResponse).locations;
 }

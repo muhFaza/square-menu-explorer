@@ -3,7 +3,9 @@ import { createApiJsonResponse } from "@/lib/http/json-response";
 import {
   listActiveLocations,
   type LocationsGateway,
+  type LocationsResultCache,
 } from "@/lib/locations/location-service";
+import { sharedLocationsCache } from "@/lib/locations/locations-cache";
 import {
   withRequestLogging,
   type RequestHandler,
@@ -14,39 +16,31 @@ import { createSquareLocationsGateway } from "@/lib/square/locations-gateway";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-interface LocationsHandlerDependencies {
+export interface LocationsGetHandlerDependencies {
   readonly gateway: LocationsGateway;
-}
-
-export interface LocationsGetHandlerDependencies
-  extends LocationsHandlerDependencies {
+  readonly cache: LocationsResultCache;
   readonly requestLogging?: Partial<RequestLoggingDependencies>;
 }
 
 /** HTTP composition only: service invocation, public envelope, and error boundary. */
-export function createLocationsHandler({
+export function createLocationsGetHandler({
   gateway,
-}: LocationsHandlerDependencies): RequestHandler {
-  return async (_request, { requestId }) => {
+  cache,
+  requestLogging,
+}: LocationsGetHandlerDependencies): (request: Request) => Promise<Response> {
+  const handler: RequestHandler = async (_request, { requestId }) => {
     try {
-      const response = await listActiveLocations(gateway);
+      const response = await listActiveLocations(gateway, cache);
       return createApiJsonResponse(response, requestId);
     } catch (error) {
       return toApiErrorResponse(error, requestId);
     }
   };
-}
 
-export function createLocationsGetHandler({
-  gateway,
-  requestLogging,
-}: LocationsGetHandlerDependencies): (request: Request) => Promise<Response> {
-  return withRequestLogging(
-    createLocationsHandler({ gateway }),
-    requestLogging,
-  );
+  return withRequestLogging(handler, requestLogging);
 }
 
 export const GET = createLocationsGetHandler({
   gateway: createSquareLocationsGateway(),
+  cache: sharedLocationsCache,
 });

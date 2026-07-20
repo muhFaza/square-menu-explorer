@@ -38,10 +38,12 @@ function sign(body: string): string {
 
 function createTestHandler({
   environment = webhookEnvironment(),
-  invalidateAll = vi.fn(),
+  invalidateCatalog = vi.fn(),
+  invalidateLocations = vi.fn(),
 }: {
   environment?: Readonly<ServerEnvironment>;
-  invalidateAll?: () => void;
+  invalidateCatalog?: () => void;
+  invalidateLocations?: () => void;
 } = {}) {
   const entries: HttpRequestLog[] = [];
   let requestNumber = 0;
@@ -57,12 +59,14 @@ function createTestHandler({
 
   return {
     post: createSquareWebhookPostHandler({
-      cache: { invalidateAll },
+      catalogCache: { invalidateAll: invalidateCatalog },
+      locationsCache: { invalidateAll: invalidateLocations },
       getEnvironment: () => environment,
       requestLogging,
     }),
     entries,
-    invalidateAll,
+    invalidateCatalog,
+    invalidateLocations,
   };
 }
 
@@ -83,8 +87,9 @@ describe("square webhook Route Handler integration", () => {
     expect(webhookDynamic).toBe("force-dynamic");
   });
 
-  it("busts the catalog cache for catalog.version.updated", async () => {
-    const { post, invalidateAll, entries } = createTestHandler();
+  it("busts the catalog and locations caches for catalog.version.updated", async () => {
+    const { post, invalidateCatalog, invalidateLocations, entries } =
+      createTestHandler();
     const body = JSON.stringify({ type: "catalog.version.updated" });
 
     const response = await post(webhookRequest(body));
@@ -96,12 +101,14 @@ describe("square webhook Route Handler integration", () => {
       received: true,
       processed: true,
     });
-    expect(invalidateAll).toHaveBeenCalledOnce();
+    expect(invalidateCatalog).toHaveBeenCalledOnce();
+    expect(invalidateLocations).toHaveBeenCalledOnce();
     expect(entries[0]?.statusCode).toBe(200);
   });
 
-  it("acknowledges unrelated events without busting the cache", async () => {
-    const { post, invalidateAll } = createTestHandler();
+  it("acknowledges unrelated events without busting the caches", async () => {
+    const { post, invalidateCatalog, invalidateLocations } =
+      createTestHandler();
     const body = JSON.stringify({ type: "inventory.count.updated" });
 
     const response = await post(webhookRequest(body));
@@ -111,11 +118,13 @@ describe("square webhook Route Handler integration", () => {
       received: true,
       processed: false,
     });
-    expect(invalidateAll).not.toHaveBeenCalled();
+    expect(invalidateCatalog).not.toHaveBeenCalled();
+    expect(invalidateLocations).not.toHaveBeenCalled();
   });
 
-  it("rejects an invalid signature with 401 and does not bust the cache", async () => {
-    const { post, invalidateAll } = createTestHandler();
+  it("rejects an invalid signature with 401 and does not bust the caches", async () => {
+    const { post, invalidateCatalog, invalidateLocations } =
+      createTestHandler();
     const body = JSON.stringify({ type: "catalog.version.updated" });
 
     const response = await post(webhookRequest(body, "d3Jvbmc="));
@@ -124,11 +133,12 @@ describe("square webhook Route Handler integration", () => {
     expect(await response.json()).toMatchObject({
       error: { code: "UNAUTHORIZED", message: "Invalid webhook signature." },
     });
-    expect(invalidateAll).not.toHaveBeenCalled();
+    expect(invalidateCatalog).not.toHaveBeenCalled();
+    expect(invalidateLocations).not.toHaveBeenCalled();
   });
 
   it("responds 503 when webhook configuration is missing", async () => {
-    const { post, invalidateAll } = createTestHandler({
+    const { post, invalidateCatalog, invalidateLocations } = createTestHandler({
       environment: webhookEnvironment({
         squareWebhookSignatureKey: undefined,
         squareWebhookNotificationUrl: undefined,
@@ -147,11 +157,13 @@ describe("square webhook Route Handler integration", () => {
       },
     });
     expect(serialized).not.toContain(SIGNATURE_KEY);
-    expect(invalidateAll).not.toHaveBeenCalled();
+    expect(invalidateCatalog).not.toHaveBeenCalled();
+    expect(invalidateLocations).not.toHaveBeenCalled();
   });
 
   it("rejects a validly signed body that is not a JSON event with 400", async () => {
-    const { post, invalidateAll } = createTestHandler();
+    const { post, invalidateCatalog, invalidateLocations } =
+      createTestHandler();
 
     const response = await post(webhookRequest("not-json{"));
 
@@ -159,6 +171,7 @@ describe("square webhook Route Handler integration", () => {
     expect(await response.json()).toMatchObject({
       error: { code: "BAD_REQUEST" },
     });
-    expect(invalidateAll).not.toHaveBeenCalled();
+    expect(invalidateCatalog).not.toHaveBeenCalled();
+    expect(invalidateLocations).not.toHaveBeenCalled();
   });
 });

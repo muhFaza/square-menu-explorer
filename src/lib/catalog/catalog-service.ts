@@ -6,6 +6,7 @@ import { ApplicationError } from "@/lib/errors/application-error";
 import {
   listActiveLocations,
   type LocationsGateway,
+  type LocationsResultCache,
 } from "@/lib/locations/location-service";
 import type { SquareCatalogGateway } from "@/lib/square/catalog-gateway";
 import type {
@@ -27,6 +28,7 @@ export interface CatalogService {
 
 export interface CatalogServiceDependencies {
   readonly locationsGateway: LocationsGateway;
+  readonly locationsCache: LocationsResultCache;
   readonly catalogGateway: SquareCatalogGateway;
   readonly cache: CatalogResultCache;
 }
@@ -57,12 +59,16 @@ export function projectCatalogCategories(
 /** Coordinates active-location validation, complete retrieval, mapping, and cache. */
 export function createCatalogService({
   locationsGateway,
+  locationsCache,
   catalogGateway,
   cache,
 }: CatalogServiceDependencies): CatalogService {
   const getCatalog = (locationId: string): Promise<CatalogResponse> =>
     cache.getOrLoad(createCatalogCacheKey(locationId), async () => {
-      const { locations } = await listActiveLocations(locationsGateway);
+      const { locations } = await listActiveLocations(
+        locationsGateway,
+        locationsCache,
+      );
       if (!locations.some(({ id }) => id === locationId)) {
         throw createLocationNotFoundError(locationId);
       }

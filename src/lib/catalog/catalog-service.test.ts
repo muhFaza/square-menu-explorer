@@ -9,7 +9,8 @@ import type {
   SquareCatalogGateway,
 } from "@/lib/square/catalog-gateway";
 
-import { AsyncTtlCache } from "./catalog-cache";
+import { AsyncTtlCache } from "@/lib/cache/async-ttl-cache";
+
 import {
   createCatalogService,
   projectCatalogCategories,
@@ -59,6 +60,7 @@ function createService(
   const cache = new AsyncTtlCache<Awaited<ReturnType<ReturnType<typeof createCatalogService>["getCatalog"]>>>();
   const service = createCatalogService({
     locationsGateway,
+    locationsCache: new AsyncTtlCache(),
     catalogGateway,
     cache,
   });
@@ -172,6 +174,7 @@ describe("createCatalogService", () => {
     const fetchCatalog = vi.fn(() => pendingCatalog);
     const service = createCatalogService({
       locationsGateway: { listLocations },
+      locationsCache: new AsyncTtlCache(),
       catalogGateway: { fetchCatalog },
       cache: new AsyncTtlCache(),
     });
@@ -205,10 +208,9 @@ describe("createCatalogService", () => {
     expect(fetchCatalog).not.toHaveBeenCalled();
   });
 
-  it("does not cache validation or retrieval failures", async () => {
+  it("does not cache a catalog retrieval failure but reuses the cached location check", async () => {
     const listLocations = vi
       .fn<LocationsGateway["listLocations"]>()
-      .mockResolvedValueOnce([])
       .mockResolvedValue([activeLocation()]);
     const fetchCatalog = vi
       .fn<SquareCatalogGateway["fetchCatalog"]>()
@@ -216,20 +218,19 @@ describe("createCatalogService", () => {
       .mockResolvedValue(rawCatalog());
     const service = createCatalogService({
       locationsGateway: { listLocations },
+      locationsCache: new AsyncTtlCache(),
       catalogGateway: { fetchCatalog },
       cache: new AsyncTtlCache(),
     });
 
-    await expect(service.getCatalog(LOCATION_ID)).rejects.toMatchObject({
-      code: "NOT_FOUND",
-    });
     await expect(service.getCatalog(LOCATION_ID)).rejects.toThrow(
       "fake-upstream",
     );
     await expect(service.getCatalog(LOCATION_ID)).resolves.toMatchObject({
       categories: [{ id: "DRINKS" }],
     });
-    expect(listLocations).toHaveBeenCalledTimes(3);
+    // The successful location list is cached, so the retry does not re-fetch it.
+    expect(listLocations).toHaveBeenCalledOnce();
     expect(fetchCatalog).toHaveBeenCalledTimes(2);
   });
 });

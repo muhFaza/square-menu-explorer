@@ -1,7 +1,8 @@
 import type { CatalogObject, Money } from "square";
 
-import { ApplicationError } from "@/lib/errors/application-error";
+import { createCatalogContractError } from "@/lib/errors/application-error";
 import type { RawCatalogResult } from "@/lib/square/catalog-gateway";
+import { nullableTrimmed } from "@/lib/text/strings";
 import type {
   CatalogCategoryGroupDto,
   CatalogItemDto,
@@ -21,20 +22,6 @@ interface ResolvedCategory {
 interface RelatedObjectIndexes {
   readonly categoriesById: ReadonlyMap<string, ResolvedCategory>;
   readonly imageUrlsById: ReadonlyMap<string, string>;
-}
-
-function createCatalogContractError(message: string): ApplicationError {
-  return new ApplicationError({
-    code: "SQUARE_UNAVAILABLE",
-    statusCode: 502,
-    message,
-    publicMessage: "Menu data is temporarily unavailable.",
-  });
-}
-
-function nullableTrimmed(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
 }
 
 function requireTrimmed(

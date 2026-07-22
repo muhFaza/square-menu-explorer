@@ -36,6 +36,8 @@ export default defineConfig({
     env: {
       HOSTNAME: "127.0.0.1",
       PORT: String(productionPort),
+      // Raise the /api/* per-IP rate limit so parallel e2e runs never hit 429.
+      RATE_LIMIT_MAX_PER_MINUTE: "10000",
     },
     url: `http://127.0.0.1:${productionPort}`,
     reuseExistingServer: false,

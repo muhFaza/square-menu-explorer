@@ -11,6 +11,7 @@ export interface ServerEnvironment {
   readonly squareApplicationId?: string;
   readonly squareWebhookSignatureKey?: string;
   readonly squareWebhookNotificationUrl?: string;
+  readonly adminApiKey?: string;
 }
 
 export type EnvironmentSource = Readonly<Record<string, string | undefined>>;
@@ -87,6 +88,7 @@ export function parseServerEnvironment(
     source.SQUARE_WEBHOOK_SIGNATURE_KEY?.trim() || undefined;
   const squareWebhookNotificationUrl =
     source.SQUARE_WEBHOOK_NOTIFICATION_URL?.trim() || undefined;
+  const adminApiKey = source.ADMIN_API_KEY?.trim() || undefined;
 
   if (!squareAccessToken || !squareEnvironment || !port || issues.length > 0) {
     throw new ConfigurationError(
@@ -101,6 +103,7 @@ export function parseServerEnvironment(
     ...(squareApplicationId ? { squareApplicationId } : {}),
     ...(squareWebhookSignatureKey ? { squareWebhookSignatureKey } : {}),
     ...(squareWebhookNotificationUrl ? { squareWebhookNotificationUrl } : {}),
+    ...(adminApiKey ? { adminApiKey } : {}),
   });
 }
 

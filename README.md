@@ -49,6 +49,8 @@ pnpm dev                     # http://localhost:3000
 | `SQUARE_APPLICATION_ID` | no | Identification only; not used to authenticate requests. |
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | no | Enables the cache-invalidation webhook. Unset disables it. |
 | `SQUARE_WEBHOOK_NOTIFICATION_URL` | no | Must exactly match the Square subscription URL — it is part of the signed payload. |
+| `ADMIN_API_KEY` | no | Enables `POST /api/admin/cache/invalidate`. Unset returns `404`. |
+| `RATE_LIMIT_MAX_PER_MINUTE` | no | Per-IP request cap for `/api/*`. Defaults to 60. |
 
 The test suite is deterministic and needs no credentials.
 
@@ -129,6 +131,20 @@ GET /api/catalog/categories?location_id=<ID>    # nonempty categories with count
 A missing, duplicated, or malformed `location_id` returns `400`; a well-formed ID that is not an active location returns `404` without touching the catalog.
 
 `POST /api/webhooks/square` invalidates the catalog cache when Square sends `catalog.version.updated`, instead of waiting out the TTL. Each delivery is verified by recomputing `base64(HMAC-SHA256(key, notificationUrl + rawBody))` and comparing it against the `x-square-hmacsha256-signature` header in constant time. Bad signature → `401`; unparseable body → `400`; unconfigured → `503`.
+
+## API hardening
+
+Because this is a public menu viewer rather than an authenticated product, the API surface is hardened instead of gated behind user accounts. A `proxy.ts` (the Next 16 successor to `middleware.ts`) runs before every `/api/*` route and applies two checks in order.
+
+**Per-IP rate limiting.** A token bucket keyed by client IP caps public routes at 60 requests per minute (override with `RATE_LIMIT_MAX_PER_MINUTE`) and `/api/admin/*` at a fixed 10 per minute to blunt key brute-forcing. The IP is read from the last `x-forwarded-for` entry, which our own reverse proxy appends — earlier entries are client-forgeable. Over the limit returns `429` with a `Retry-After` header giving the seconds until the next token. State is an in-memory map with a lazy sweep of idle buckets, which is correct for this single-node standalone deployment; a multi-instance deployment would move the same interface to Redis.
+
+**Sec-Fetch-Site check.** Browsers stamp every request with `Sec-Fetch-Site`, so a value that names another site means another website is driving a browser at the API, and the request is rejected with `403`. This is honest defense-in-depth, not a wall: a missing header (curl, Square's webhook servers, older browsers) is allowed, because a public API cannot be cryptographically bound to its own frontend. No CORS headers are set, so a browser's same-origin default already denies cross-site reads regardless.
+
+**Admin cache invalidation.** `POST /api/admin/cache/invalidate` busts the catalog and locations caches on demand. It requires `Authorization: Bearer $ADMIN_API_KEY`, compared as SHA-256 digests with `timingSafeEqual`. When `ADMIN_API_KEY` is unset the endpoint returns `404` rather than advertising a disabled route; a missing or wrong key returns `401`.
+
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_API_KEY" https://your-domain.example/api/admin/cache/invalidate
+```
 
 ## How it works
 
